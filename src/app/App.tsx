@@ -27,7 +27,6 @@ function Landing() {
         {hasSave && <PixelButton variant="ghost" onClick={() => navigate("/player")}>RESUME MISSION / เล่นต่อ</PixelButton>}
         {hasSave && <PixelButton variant="danger" onClick={reset}>RESET LOCAL DATA / ล้างข้อมูลเครื่องนี้</PixelButton>}
       </div>
-      <p className="facilitated-note">HUMAN-FACILITATED TEAM LEARNING EXPERIENCE</p>
     </div>
   </main>;
 }
