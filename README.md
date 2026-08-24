@@ -9,6 +9,8 @@ This is one static application with two entry modes:
 
 The app deliberately has no backend, accounts, realtime synchronization, random events, or AI judgement. The facilitator remains the Sponsor, Approver, Stakeholder, Crisis Controller, Reviewer, and Coach.
 
+คู่มือภาษาไทยฉบับละเอียด: [วิธีเล่นสำหรับ Player และ Facilitator](docs/gameplay-guide-th.md)
+
 ## Quick start
 
 Requirements: Node.js 20 or newer.

@@ -55,7 +55,11 @@ function FacilitatorAccess() {
 }
 
 function FacilitatorGuard() {
-  return isFacilitatorUnlocked() ? <FacilitatorApp onLock={() => { lockFacilitator(); window.location.hash = "#/facilitator-access"; }} /> : <Navigate to="/facilitator-access" replace />;
+  if (!isFacilitatorUnlocked()) return <Navigate to="/facilitator-access" replace />;
+  return <FacilitatorApp
+    onLock={() => { lockFacilitator(); window.location.hash = "#/facilitator-access"; }}
+    onExit={() => { lockFacilitator(); window.location.hash = "#/"; }}
+  />;
 }
 
 export default function App() {
