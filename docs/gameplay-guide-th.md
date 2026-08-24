@@ -147,7 +147,7 @@ Facilitator ประกาศรหัส เช่น `E03` ทีมกรอ
 
 ### 6.3 APPROVAL
 
-เพิ่มชื่อทีมด้วย `ADD TEAM` แล้วใช้ Mission Approval และ Plan Review checklists บันทึก verdict หรือเงื่อนไข อย่าเขียน Goal หรือ rebuild plan แทนทีม ให้ระบุสิ่งที่ขาดหรือคลุมเครือ
+เพิ่มแฟ้มทีมด้วย `ADD TEAM RECORD / เพิ่มทีมสำหรับบันทึกผล` แล้วใช้ Mission Approval และ Plan Review checklists บันทึก verdict หรือเงื่อนไข ปุ่มนี้สร้างเฉพาะแฟ้มโน้ตฝั่ง Facilitator และไม่ได้เชื่อมข้อมูลจาก Player อย่าเขียน Goal หรือ rebuild plan แทนทีม ให้ระบุสิ่งที่ขาดหรือคลุมเครือ
 
 ### 6.4 EVENTS
 
