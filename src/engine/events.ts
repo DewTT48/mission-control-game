@@ -1,5 +1,6 @@
 import { events } from "../scenarios/innovation-day/scenario";
 import type { Task, TeamGameState } from "../types/game";
+import { isVendorActive } from "./calculations";
 
 export const applyEvent = (source: TeamGameState, rawCode: string): { state: TeamGameState; error?: "invalid" | "duplicate" } => {
   const code = rawCode.trim().toUpperCase();
@@ -21,9 +22,9 @@ export const applyEvent = (source: TeamGameState, rawCode: string): { state: Tea
   if (code === "E07") unlock("V05");
   if (code === "E08" && !state.resources.some((r) => r.id === "corp-comms")) state.resources.push({ id: "corp-comms", name: "Corp Comms Support", skills: ["Communication", "Content", "General Support"], dailyCapacity: 0, capacityOverrides: { 6: 6 }, kind: "temporary" });
   if (code === "E09") state.confirmedAttendance = 92;
-  if (code === "E10") { state.cateringCutoffDay = 7; state.postCutoffIncreaseLimit = state.vendors.some((v) => v.id === "V12" && v.hired) ? 0.3 : 0.1; }
+  if (code === "E10") { state.cateringCutoffDay = 7; state.postCutoffIncreaseLimit = isVendorActive(state, "V12") ? 0.3 : 0.1; }
   if (code === "E11" && !task("T21")) {
-    const newTask: Task = { id: "T21", title: { th: "จัดทำ Executive Highlight Video", en: "Produce Executive Highlight Video" }, effortHours: 10, preferredSkills: ["Media", "Content"], dueDay: 11, cost: 0, dependencies: [], facilitatorClassification: "supporting", status: "not_started", priorityZone: "unassigned", priorityReason: "", issue: "", nextAction: "" };
+    const newTask: Task = { id: "T21", title: { th: "จัดทำ Executive Highlight Video", en: "Produce Executive Highlight Video" }, effortHours: 10, preferredSkills: ["Media", "Content"], dueDay: 11, cost: 0, dependencies: [], facilitatorClassification: "supporting", status: "not_started", priorityZone: "unassigned", priorityReason: "", issue: "", nextAction: "", budgetStatus: "included" };
     state.tasks.push(newTask);
   }
   if (code === "E12") { const t13 = task("T13"); if (t13 && t13.status !== "dropped") t13.dueDay = Math.min(t13.dueDay, 6); }

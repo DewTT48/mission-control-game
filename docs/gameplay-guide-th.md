@@ -87,9 +87,15 @@ Player และ Facilitator ไม่ sync กันอัตโนมัติ
 
 อย่าจัดจากความรู้สึกว่า “งานนี้ดูด่วน” เพียงอย่างเดียว ให้ดู Outcome, due date, dependency และ risk
 
+`DUE BY D4` หมายถึงงานควรเสร็จไม่เกิน Day 4 ไม่ได้หมายความว่าต้องเริ่มทำใน Day 4 ทีมยังเป็นผู้เลือกวันทำงาน คน และจำนวนชั่วโมงเอง
+
+สำหรับ Task ที่มีค่าใช้จ่าย ให้เลือกว่า `ยังไม่ตัดสินใจ`, `รวมในแผน` หรือ `ไม่นำมาคิดในแผน` ระบบจะนับเฉพาะรายการที่เลือก `รวมในแผน` ทำให้เกมใหม่ไม่เริ่มต้นด้วยยอด 114,000 บาทโดยอัตโนมัติ
+
 ### 5.7 PLAN
 
 สร้าง Allocation โดยเลือก Task, คน, Day และจำนวนชั่วโมง รองรับครึ่งชั่วโมง งานหนึ่งแบ่งหลายวันหรือหลายคนได้ และคนหนึ่งรับหลายงานในวันเดียวได้
+
+เมื่อเลือก Task ระบบจะแสดง Effort ที่ต้องใช้ จัดสรรแล้ว เหลืออีกกี่ชั่วโมง Due By, Skills และ Dependencies เมื่อเลือกคน ระบบจะแสดง Skills และ Capacity ของวันนั้น จึงไม่จำเป็นต้องย้อนกลับหน้า Team หรือ Priority เพื่อจำข้อมูล
 
 - 0–4h: Available
 - มากกว่า 4–6h: Busy
@@ -99,7 +105,11 @@ Player และ Facilitator ไม่ sync กันอัตโนมัติ
 
 ### 5.8 MARKET
 
-เลือก Vendor เพื่อซื้อ capacity, technology, delivery speed, risk reduction หรือ flexibility เมื่อกด Hire ค่าใช้จ่ายจะเข้า Projected Spend ทันที ควรดูทั้งราคาและ internal coordination ที่ยังต้องใช้
+เลือก Vendor เพื่อซื้อ capacity, technology, delivery speed, risk reduction หรือ flexibility ปุ่ม `ADD TO PLAN` จะเพิ่ม Vendor เข้า Planned Spend และสามารถ `REMOVE` ได้ในช่วงร่างแผน
+
+เมื่อพร้อมและผ่านการทบทวนแผน ให้กด `LOCK PLAN & COMMIT` หลังจากนั้น Vendor จะเปลี่ยนเป็น `COMMITTED` หากต้องการยกเลิกต้องบันทึกเหตุผล ผลกระทบ และข้อเสนอผ่าน Decision Request
+
+Budget Panel แสดงวงเงิน ค่า Task ค่า Vendor Planned Spend และยอดคงเหลือหรือยอดเกินวงเงิน ถ้าเกินงบ ระบบยังอนุญาตให้วางแผนต่อ แต่ต้องบันทึกเหตุผลและแนวทางจัดการก่อน Commit Plan
 
 ### 5.9 CONTROL
 

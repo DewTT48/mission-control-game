@@ -3,6 +3,7 @@ import type { GameEvent, Resource, Task, Vendor } from "../../types/game";
 const task = (id: string, th: string, en: string, effortHours: number, skills: string[], dueDay: number, cost: number, dependencies: string[], facilitatorClassification: Task["facilitatorClassification"]): Task => ({
   id, title: { th, en }, effortHours, preferredSkills: skills, dueDay, cost, dependencies,
   facilitatorClassification, status: "not_started", priorityZone: "unassigned", priorityReason: "", issue: "", nextAction: "",
+  budgetStatus: cost > 0 ? "undecided" : "included",
 });
 
 export const resources: Resource[] = [
@@ -38,7 +39,7 @@ export const tasks: Task[] = [
 
 const vendor = (id: string, th: string, en: string, category: string, cost: number, benefit: string, coordination: string, availability: Vendor["availability"]): Vendor => ({
   id, name: { th, en }, category, cost, benefit: { th: benefit, en: benefit }, coordination, availability,
-  unlocked: availability !== "situational", hired: false,
+  unlocked: availability !== "situational", planStatus: "available",
 });
 
 export const vendors: Vendor[] = [

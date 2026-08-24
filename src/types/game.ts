@@ -2,6 +2,8 @@ export type LocalizedText = { th: string; en: string };
 export type TaskStatus = "not_started" | "in_progress" | "done" | "at_risk" | "delayed" | "dropped";
 export type PriorityZone = "unassigned" | "do_first" | "plan_next" | "delegate_outsource" | "defer_drop";
 export type MissionStatus = "on_track" | "at_risk" | "critical";
+export type TaskBudgetStatus = "undecided" | "included" | "excluded";
+export type VendorPlanStatus = "available" | "planned" | "committed";
 
 export type Resource = {
   id: string;
@@ -28,6 +30,7 @@ export type Task = {
   priorityReason: string;
   issue: string;
   nextAction: string;
+  budgetStatus: TaskBudgetStatus;
 };
 
 export type Allocation = {
@@ -48,7 +51,7 @@ export type Vendor = {
   coordination: string;
   availability: "planning" | "later_planning" | "situational";
   unlocked: boolean;
-  hired: boolean;
+  planStatus: VendorPlanStatus;
 };
 
 export type GameEvent = {
@@ -116,6 +119,8 @@ export type TeamGameState = {
   expectedAttendance: number;
   confirmedAttendance?: number;
   networkRisk: boolean;
+  planLocked: boolean;
+  budgetRationale: string;
   cateringCutoffDay?: number;
   postCutoffIncreaseLimit?: number;
   missionStatus: MissionStatus;

@@ -2,6 +2,31 @@ import { STORAGE_KEYS } from "./config";
 import { createInitialFacilitatorState, createInitialTeamState } from "../engine/state";
 import type { FacilitatorState, TeamGameState } from "../types/game";
 
+type LegacyVendor = TeamGameState["vendors"][number] & { hired?: boolean };
+
+export function normalizeTeamState(saved: TeamGameState): TeamGameState {
+  const initial = createInitialTeamState();
+  return {
+    ...initial,
+    ...saved,
+    missionDefinition: { ...initial.missionDefinition, ...saved.missionDefinition },
+    missionApproval: { ...initial.missionApproval, ...saved.missionApproval },
+    finalReview: { ...initial.finalReview, ...saved.finalReview },
+    tasks: saved.tasks.map((task) => ({
+      ...task,
+      budgetStatus: task.budgetStatus ?? (task.cost === 0 ? "included" : task.status === "dropped" ? "excluded" : "included"),
+    })),
+    resources: saved.resources ?? initial.resources,
+    allocations: saved.allocations ?? [],
+    vendors: (saved.vendors as LegacyVendor[]).map((vendor) => ({
+      ...vendor,
+      planStatus: vendor.planStatus ?? (vendor.hired ? "committed" : "available"),
+    })),
+    planLocked: saved.planLocked ?? false,
+    budgetRationale: saved.budgetRationale ?? "",
+  };
+}
+
 function safeLoad<T>(key: string, fallback: () => T, validate: (value: unknown) => value is T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -23,7 +48,7 @@ const isFacilitatorState = (value: unknown): value is FacilitatorState => {
   return !!item && item.version === 2 && Array.isArray(item.teams);
 };
 
-export const loadTeamState = () => safeLoad(STORAGE_KEYS.player, createInitialTeamState, isTeamState);
+export const loadTeamState = () => normalizeTeamState(safeLoad(STORAGE_KEYS.player, createInitialTeamState, isTeamState));
 export const loadFacilitatorState = () => safeLoad(STORAGE_KEYS.facilitator, createInitialFacilitatorState, isFacilitatorState);
 export const saveTeamState = (state: TeamGameState) => localStorage.setItem(STORAGE_KEYS.player, JSON.stringify({ ...state, updatedAt: new Date().toISOString() }));
 export const saveFacilitatorState = (state: FacilitatorState) => localStorage.setItem(STORAGE_KEYS.facilitator, JSON.stringify({ ...state, updatedAt: new Date().toISOString() }));
@@ -44,5 +69,5 @@ export const exportTeamState = (state: TeamGameState) => {
 export const importTeamState = async (file: File): Promise<TeamGameState> => {
   const parsed: unknown = JSON.parse(await file.text());
   if (!isTeamState(parsed)) throw new Error("INVALID_STATE");
-  return parsed;
+  return normalizeTeamState(parsed);
 };

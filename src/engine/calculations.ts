@@ -1,5 +1,8 @@
 import type { TeamGameState } from "../types/game";
 
+export const isVendorActive = (state: TeamGameState, vendorId: string) =>
+  state.vendors.some((vendor) => vendor.id === vendorId && vendor.planStatus !== "available");
+
 export const getUsedHours = (state: TeamGameState, resourceId: string, day: number) =>
   state.allocations.filter((a) => a.resourceId === resourceId && a.day === day).reduce((sum, a) => sum + a.hours, 0);
 
@@ -21,16 +24,24 @@ export const getAllocatedEffort = (state: TeamGameState, taskId: string) =>
 export const getEffectiveEffort = (state: TeamGameState, taskId: string) => {
   const task = state.tasks.find((t) => t.id === taskId);
   if (!task) return 0;
-  if (taskId === "T05" && state.vendors.some((v) => v.id === "V08" && v.hired)) return 2;
-  if (taskId === "T21" && state.vendors.some((v) => v.id === "V14" && v.hired)) return 2;
+  if (taskId === "T05" && isVendorActive(state, "V08")) return 2;
+  if (taskId === "T21" && isVendorActive(state, "V14")) return 2;
   return task.effectiveEffortHours ?? task.effortHours;
 };
 
-export const getProjectedSpend = (state: TeamGameState) => {
-  const taskCost = state.tasks.filter((t) => t.status !== "dropped").reduce((sum, t) => sum + t.cost, 0);
-  const vendorCost = state.vendors.filter((v) => v.hired).reduce((sum, v) => sum + v.cost, 0);
-  return taskCost + vendorCost;
+export const getBudgetBreakdown = (state: TeamGameState) => {
+  const taskItems = state.tasks.filter((task) => task.status !== "dropped" && task.budgetStatus === "included" && task.cost > 0);
+  const vendorItems = state.vendors.filter((vendor) => vendor.planStatus !== "available");
+  const taskCost = taskItems.reduce((sum, task) => sum + task.cost, 0);
+  const vendorCost = vendorItems.reduce((sum, vendor) => sum + vendor.cost, 0);
+  const eventAdjustments = 0;
+  const plannedSpend = taskCost + vendorCost + eventAdjustments;
+  const remaining = state.budgetCeiling - plannedSpend;
+  return { taskItems, vendorItems, taskCost, vendorCost, eventAdjustments, plannedSpend, remaining, overBudget: remaining < 0 };
 };
+
+export const getPlannedSpend = (state: TeamGameState) => getBudgetBreakdown(state).plannedSpend;
+export const getProjectedSpend = getPlannedSpend;
 
 export const getUnmetDependencies = (state: TeamGameState, taskId: string) => {
   const task = state.tasks.find((t) => t.id === taskId);
