@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { applyEvent } from "../../engine/events";
-import { getAllocatedEffort, getAvailableHours, getBudgetBreakdown, getDependencyPlanIssues, getEffectiveEffort, getSummary, getTaskPlannedFinishDay, getTaskPlanStatus, getUnmetDependencies, getUsedHours, getVendorSupportedOpenTasks } from "../../engine/calculations";
+import { getAllocatedEffort, getAvailableHours, getBudgetBreakdown, getDependencyPlanIssues, getEffectiveEffort, getSameDayDependencyHandoffs, getSummary, getTaskPlannedFinishDay, getTaskPlannedStartDay, getTaskPlanStatus, getUnmetDependencies, getUsedHours, getVendorSupportedOpenTasks } from "../../engine/calculations";
 import { exportTeamState, importTeamState, loadTeamState, saveTeamState } from "../../app/storage";
 import { events } from "../../scenarios/innovation-day/scenario";
 import type { Decision, Task, TaskPriority, TeamGameState } from "../../types/game";
@@ -130,7 +130,7 @@ function Plan({ state, update }: { state: TeamGameState; update: UpdateTeamState
   const plannableTasks = state.tasks.filter((item) => item.priority !== "drop" && item.status !== "dropped").sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority] || a.dueDay - b.dueDay);
   const task = plannableTasks.find((item) => item.id === taskId) ?? plannableTasks[0] ?? state.tasks[0]; const resource = state.resources.find((item) => item.id === resourceId) ?? state.resources[0];
   const required = getEffectiveEffort(state, task.id); const allocated = getAllocatedEffort(state, task.id); const remaining = Math.max(required - allocated, 0); const used = getUsedHours(state, resource.id, day); const available = getAvailableHours(state, resource.id, day); const skillMatch = task.preferredSkills.includes("Mixed") || task.preferredSkills.some((skill) => resource.skills.includes(skill));
-  const plannedFinish = getTaskPlannedFinishDay(state, task.id); const planStatus = getTaskPlanStatus(state, task.id); const dependencyIssues = getDependencyPlanIssues(state, task.id, day);
+  const plannedStart = getTaskPlannedStartDay(state, task.id); const plannedFinish = getTaskPlannedFinishDay(state, task.id); const planStatus = getTaskPlanStatus(state, task.id); const dependencyIssues = getDependencyPlanIssues(state, task.id); const sameDayHandoffs = getSameDayDependencyHandoffs(state, task.id); const candidateDependencyIssues = hours >= .5 && day !== plannedStart ? getDependencyPlanIssues(state, task.id, day) : [];
   const add = () => { if (!hours || hours < .5) return; update((next) => { next.allocations.push({ id: crypto.randomUUID(), taskId, resourceId, day, hours, source: "internal" }); next.planLocked = false; }); setHours(0); };
   return <>
     <h1>RESOURCE & SCHEDULE PLAN</h1>
@@ -145,10 +145,12 @@ function Plan({ state, update }: { state: TeamGameState; update: UpdateTeamState
     </div></Panel>
     <div className="planning-context">
       <Panel title="SELECTED TASK / งานที่เลือก"><div className="task-heading-row"><h3>{task.id} · <Bilingual {...task.title} /></h3><Badge tone={planStatus === "planned" || planStatus === "done" ? "green" : planStatus === "at_risk" ? "orange" : planStatus === "waiting" ? "purple" : "yellow"}>{planStatusLabels[planStatus]}</Badge></div>
-        <div className="context-metrics"><span>ต้องใช้ <strong>{required}H</strong></span><span>จัดสรรแล้ว <strong>{allocated}H</strong></span><span>เหลือ <strong>{remaining}H</strong></span><span>Planned Finish <strong>{plannedFinish ? `D${plannedFinish}` : "—"}</strong></span><span>Due By <strong>D{task.dueDay}</strong></span></div>
+        <div className="context-metrics"><span>ต้องใช้ <strong>{required}H</strong></span><span>จัดสรรแล้ว <strong>{allocated}H</strong></span><span>เหลือ <strong>{remaining}H</strong></span><span>Planned Start <strong>{plannedStart ? `D${plannedStart}` : "—"}</strong></span><span>Planned Finish <strong>{plannedFinish ? `D${plannedFinish}` : "—"}</strong></span><span>Due By <strong>D{task.dueDay}</strong></span></div>
         <p>PRIORITY: {task.priority.toUpperCase()}</p><p>SKILLS: {task.preferredSkills.join(", ")}</p><p>DEPENDENCIES: {task.dependencies.length ? task.dependencies.join(", ") : "ไม่มี — ทำคู่ขนานได้"}</p>
         {task.cost > 0 && <Badge tone={task.budgetStatus === "included" ? "green" : task.budgetStatus === "excluded" ? "muted" : "orange"}>BUDGET: {task.budgetStatus === "included" ? "รวมในแผน" : task.budgetStatus === "excluded" ? "ไม่นำมาคิด" : "ยังไม่ตัดสินใจ"}</Badge>}
         {dependencyIssues.map((issue) => <p className="dependency-warning" key={issue.dependencyId}><strong>{issue.dependencyId}</strong>: {issue.kind === "timing" ? `วางแผนเสร็จ D${issue.plannedFinishDay} งานนี้จึงเริ่มได้เร็วสุด D${issue.earliestStartDay}` : issue.kind === "dropped" ? "งานต้นทางถูกตัดออกจากขอบเขต" : `ยังจัดสรรไม่ครบ ${issue.allocated}/${issue.required}H`}</p>)}
+        {sameDayHandoffs.map((handoff) => <p className="mechanic-note" key={`handoff-${handoff.dependencyId}`}><strong>ส่งต่องานภายในวัน D{handoff.day}</strong><span>{handoff.dependencyId} จะเสร็จและส่งต่องานให้งานนี้ภายในวันเดียวกัน โดยระบบยังตรวจ Capacity รวมของผู้รับผิดชอบตามปกติ</span></p>)}
+        {candidateDependencyIssues.map((issue) => <p className="form-warning" key={`candidate-${issue.dependencyId}`}><strong>หากจัดสรรใน D{day}:</strong> {issue.kind === "timing" ? `${issue.dependencyId} วางแผนเสร็จ D${issue.plannedFinishDay} จึงเริ่มงานนี้ได้เร็วสุด D${issue.earliestStartDay}` : issue.kind === "dropped" ? `${issue.dependencyId} ถูกตัดออกจากขอบเขต` : `${issue.dependencyId} ยังจัดสรรไม่ครบ ${issue.allocated}/${issue.required}H`}</p>)}
         {day > task.dueDay && <p className="form-warning">วันที่เลือกช้ากว่า Due By ของ Task นี้</p>}
         {plannedFinish !== null && plannedFinish > task.dueDay && <p className="form-warning">แผนปัจจุบันเสร็จ D{plannedFinish} ซึ่งช้ากว่า Due By D{task.dueDay}</p>}
         {allocated > required && <p className="form-warning">จัดสรรเกิน Effort ที่ต้องใช้ {allocated - required} ชั่วโมง</p>}

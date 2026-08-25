@@ -60,6 +60,11 @@ export type DependencyPlanIssue = {
   required: number;
 };
 
+export type SameDayDependencyHandoff = {
+  dependencyId: string;
+  day: number;
+};
+
 export const getDependencyPlanIssues = (state: TeamGameState, taskId: string, startDay = getTaskPlannedStartDay(state, taskId)) => {
   const task = state.tasks.find((candidate) => candidate.id === taskId);
   if (!task || task.status === "done") return [];
@@ -75,10 +80,21 @@ export const getDependencyPlanIssues = (state: TeamGameState, taskId: string, st
     if (plannedFinishDay === null) {
       return [{ dependencyId, kind: "incomplete", plannedFinishDay, earliestStartDay: null, allocated, required }];
     }
-    if (startDay !== null && plannedFinishDay >= startDay) {
-      return [{ dependencyId, kind: "timing", plannedFinishDay, earliestStartDay: plannedFinishDay + 1, allocated, required }];
+    if (startDay !== null && plannedFinishDay > startDay) {
+      return [{ dependencyId, kind: "timing", plannedFinishDay, earliestStartDay: plannedFinishDay, allocated, required }];
     }
     return [];
+  });
+};
+
+export const getSameDayDependencyHandoffs = (state: TeamGameState, taskId: string, startDay = getTaskPlannedStartDay(state, taskId)) => {
+  const task = state.tasks.find((candidate) => candidate.id === taskId);
+  if (!task || task.status === "done" || startDay === null) return [];
+  return task.dependencies.flatMap<SameDayDependencyHandoff>((dependencyId) => {
+    const dependency = state.tasks.find((candidate) => candidate.id === dependencyId);
+    if (!dependency || dependency.status === "dropped" || dependency.priority === "drop") return [];
+    const plannedFinishDay = getTaskPlannedFinishDay(state, dependencyId);
+    return plannedFinishDay === startDay ? [{ dependencyId, day: startDay }] : [];
   });
 };
 

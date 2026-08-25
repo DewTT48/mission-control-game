@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createInitialTeamState } from "../engine/state";
 import { applyEvent } from "../engine/events";
-import { getBudgetBreakdown, getCapacityStatus, getDependencyPlanIssues, getEffectiveEffort, getPlanReview, getPlannedSpend, getTaskPlannedFinishDay, getVendorSupportedOpenTasks, getUsedHours } from "../engine/calculations";
+import { getBudgetBreakdown, getCapacityStatus, getDependencyPlanIssues, getEffectiveEffort, getPlanReview, getPlannedSpend, getSameDayDependencyHandoffs, getTaskPlannedFinishDay, getVendorSupportedOpenTasks, getUsedHours } from "../engine/calculations";
 import { normalizeTeamState } from "../app/storage";
 import type { TeamGameState } from "../types/game";
 import { canCommitPlan, commitPlan } from "../engine/planning";
@@ -77,13 +77,16 @@ describe("Mission Control engine", () => {
   it("rechecks dependency timing from the actual plan", () => {
     const state = createInitialTeamState();
     state.allocations = [
-      { id: "1", taskId: "T03", resourceId: "bank", day: 1, hours: 3, source: "internal" },
-      { id: "2", taskId: "T03", resourceId: "bank", day: 2, hours: 3, source: "internal" },
-      { id: "3", taskId: "T04", resourceId: "may", day: 3, hours: 2, source: "internal" },
+      { id: "1", taskId: "T03", resourceId: "bank", day: 1, hours: 4, source: "internal" },
+      { id: "2", taskId: "T03", resourceId: "bank", day: 2, hours: 2, source: "internal" },
+      { id: "3", taskId: "T04", resourceId: "bank", day: 2, hours: 2, source: "internal" },
     ];
     expect(getDependencyPlanIssues(state, "T04")).toEqual([]);
-    state.allocations.find((allocation) => allocation.id === "3")!.day = 2;
-    expect(getDependencyPlanIssues(state, "T04")[0]).toMatchObject({ dependencyId: "T03", kind: "timing", earliestStartDay: 3 });
+    expect(getSameDayDependencyHandoffs(state, "T04")).toEqual([{ dependencyId: "T03", day: 2 }]);
+    expect(getUsedHours(state, "bank", 2)).toBe(4);
+    expect(getCapacityStatus(state, "bank", 2)).not.toBe("over");
+    state.allocations.find((allocation) => allocation.id === "3")!.day = 1;
+    expect(getDependencyPlanIssues(state, "T04")[0]).toMatchObject({ dependencyId: "T03", kind: "timing", earliestStartDay: 2 });
     state.tasks.find((task) => task.id === "T03")!.status = "done";
     expect(getDependencyPlanIssues(state, "T04")).toEqual([]);
   });
