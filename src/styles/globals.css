@@ -18,6 +18,7 @@
 .planning-nav button{width:auto;background:transparent;color:var(--muted);border:2px solid var(--line);padding:7px 10px;font-weight:700}
 .planning-nav button.active{background:var(--yellow);border-color:var(--yellow);color:var(--navy-950)}
 .planning-nav button:disabled{opacity:.35;cursor:not-allowed}
+.event-entry .pixel-button{min-width:210px}.button-label-stack{display:grid;gap:2px;text-align:center}.button-label-stack>span{white-space:nowrap}
 .mechanic-note{display:grid;gap:4px;border:2px solid var(--blue);border-left-width:6px;background:#3da9fc12;padding:12px 16px;margin-bottom:16px}
 .mechanic-note strong{color:var(--blue);font-size:1.05rem}
 .mechanic-note span{color:var(--muted)}

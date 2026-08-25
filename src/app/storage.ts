@@ -38,11 +38,16 @@ export function normalizeTeamState(saved: TeamGameState): TeamGameState {
     }),
     resources: saved.resources ?? initial.resources,
     allocations: saved.allocations ?? [],
-    vendors: (saved.vendors as LegacyVendor[]).map((vendor) => ({
-      ...vendor,
-      planStatus: vendor.planStatus ?? (vendor.hired ? "committed" : "available"),
-      supportsTaskIds: vendor.supportsTaskIds ?? initial.vendors.find((candidate) => candidate.id === vendor.id)?.supportsTaskIds ?? [],
-    })),
+    vendors: (saved.vendors as LegacyVendor[]).map((vendor) => {
+      const baseline = initial.vendors.find((candidate) => candidate.id === vendor.id);
+      return {
+        ...vendor,
+        ...baseline,
+        unlocked: vendor.unlocked ?? baseline?.unlocked ?? false,
+        planStatus: vendor.planStatus ?? (vendor.hired ? "committed" : "available"),
+        supportsTaskIds: baseline?.supportsTaskIds ?? vendor.supportsTaskIds ?? [],
+      };
+    }),
     planLocked: saved.planLocked ?? false,
     budgetRationale: saved.budgetRationale ?? "",
     vendorDiscounts: saved.vendorDiscounts ?? {},
