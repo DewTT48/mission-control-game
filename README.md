@@ -9,7 +9,11 @@ This is one static application with two entry modes:
 
 The app deliberately has no backend, accounts, realtime synchronization, random events, or AI judgement. The facilitator remains the Sponsor, Approver, Stakeholder, Crisis Controller, Reviewer, and Coach.
 
-คู่มือภาษาไทยฉบับละเอียด: [วิธีเล่นสำหรับ Player และ Facilitator](docs/gameplay-guide-th.md)
+คู่มือภาษาไทยฉบับละเอียด:
+
+- [คู่มือผู้เล่น](docs/player-guide-th.md)
+- [คู่มือ Facilitator](docs/facilitator-guide-th.md)
+- [หน้ารวมคู่มือ](docs/gameplay-guide-th.md)
 
 ## Quick start
 
