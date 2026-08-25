@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createInitialTeamState } from "../engine/state";
 import { applyEvent } from "../engine/events";
-import { getBudgetBreakdown, getCapacityStatus, getEffectiveEffort, getPlannedSpend, getUsedHours } from "../engine/calculations";
+import { getBudgetBreakdown, getCapacityStatus, getDependencyPlanIssues, getEffectiveEffort, getPlanReview, getPlannedSpend, getTaskPlannedFinishDay, getVendorSupportedOpenTasks, getUsedHours } from "../engine/calculations";
 import { normalizeTeamState } from "../app/storage";
 import type { TeamGameState } from "../types/game";
 import { canCommitPlan, commitPlan } from "../engine/planning";
@@ -54,6 +54,49 @@ describe("Mission Control engine", () => {
     const migrated = normalizeTeamState(legacy);
     expect(migrated.tasks.find((task) => task.id === "T10")?.budgetStatus).toBe("included");
     expect(migrated.vendors.find((vendor) => vendor.id === "V01")?.planStatus).toBe("committed");
+  });
+
+  it("migrates legacy priority zones into the simpler priority model", () => {
+    const legacy = createInitialTeamState();
+    const task = legacy.tasks.find((item) => item.id === "T03") as typeof legacy.tasks[number] & { priorityZone?: string };
+    delete (task as Partial<typeof task>).priority;
+    task.priorityZone = "do_first";
+    expect(normalizeTeamState(legacy).tasks.find((item) => item.id === "T03")?.priority).toBe("must");
+  });
+
+  it("calculates planned finish from allocations rather than Due By", () => {
+    const state = createInitialTeamState();
+    state.allocations = [
+      { id: "1", taskId: "T03", resourceId: "bank", day: 1, hours: 3, source: "internal" },
+      { id: "2", taskId: "T03", resourceId: "bank", day: 2, hours: 3, source: "internal" },
+    ];
+    expect(getTaskPlannedFinishDay(state, "T03")).toBe(2);
+    expect(state.tasks.find((task) => task.id === "T03")?.dueDay).toBe(3);
+  });
+
+  it("rechecks dependency timing from the actual plan", () => {
+    const state = createInitialTeamState();
+    state.allocations = [
+      { id: "1", taskId: "T03", resourceId: "bank", day: 1, hours: 3, source: "internal" },
+      { id: "2", taskId: "T03", resourceId: "bank", day: 2, hours: 3, source: "internal" },
+      { id: "3", taskId: "T04", resourceId: "may", day: 3, hours: 2, source: "internal" },
+    ];
+    expect(getDependencyPlanIssues(state, "T04")).toEqual([]);
+    state.allocations.find((allocation) => allocation.id === "3")!.day = 2;
+    expect(getDependencyPlanIssues(state, "T04")[0]).toMatchObject({ dependencyId: "T03", kind: "timing", earliestStartDay: 3 });
+    state.tasks.find((task) => task.id === "T03")!.status = "done";
+    expect(getDependencyPlanIssues(state, "T04")).toEqual([]);
+  });
+
+  it("connects Must Do tasks and vendor matches to plan review", () => {
+    const state = createInitialTeamState();
+    state.tasks.find((task) => task.id === "T05")!.priority = "must";
+    expect(getPlanReview(state).mustUnplanned.map((task) => task.id)).toContain("T05");
+    const vendor = state.vendors.find((item) => item.id === "V08")!;
+    expect(getVendorSupportedOpenTasks(state, vendor).map((task) => task.id)).toEqual(["T05"]);
+    expect(getVendorSupportedOpenTasks(state, state.vendors.find((item) => item.id === "V03")!)).toEqual([]);
+    state.allocations.push({ id: "1", taskId: "T05", resourceId: "ploy", day: 1, hours: 6, source: "internal" });
+    expect(getVendorSupportedOpenTasks(state, vendor)).toEqual([]);
   });
 
   it("requires a Thai rationale before committing an over-budget plan", () => {

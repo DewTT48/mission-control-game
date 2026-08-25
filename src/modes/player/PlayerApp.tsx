@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { applyEvent } from "../../engine/events";
-import { getAllocatedEffort, getAvailableHours, getBudgetBreakdown, getEffectiveEffort, getSummary, getUnmetDependencies, getUsedHours } from "../../engine/calculations";
+import { getAllocatedEffort, getAvailableHours, getBudgetBreakdown, getDependencyPlanIssues, getEffectiveEffort, getSummary, getTaskPlannedFinishDay, getTaskPlanStatus, getUnmetDependencies, getUsedHours, getVendorSupportedOpenTasks } from "../../engine/calculations";
 import { exportTeamState, importTeamState, loadTeamState, saveTeamState } from "../../app/storage";
 import { events } from "../../scenarios/innovation-day/scenario";
-import type { Decision, Task, TeamGameState } from "../../types/game";
+import type { Decision, Task, TaskPriority, TeamGameState } from "../../types/game";
 import { Badge, Bilingual, CapacityBar, Field, Panel, PixelButton, SaveStatus } from "../../components/ui";
 import { Modal } from "../../components/Modal";
 import { BudgetPanel, PlanningNav, type UpdateTeamState } from "./PlanningBudget";
+import { PlanReview } from "./PlanReview";
 
 const tabs = ["MISSION", "TEAM", "CHAOS", "SPONSOR", "GOAL & SCOPE", "PRIORITY", "PLAN", "MARKET", "CONTROL", "EVENTS", "DECISIONS", "FINAL"];
-const zones = [["do_first", "ทำก่อน / DO FIRST"], ["plan_next", "วางแผนทำถัดไป / PLAN NEXT"], ["delegate_outsource", "มอบหมายหรือจ้าง / DELEGATE"], ["defer_drop", "เลื่อนหรือตัด / DEFER / DROP"]] as const;
+const zones = [["must", "MUST DO / ต้องทำ"], ["should", "SHOULD DO / ควรทำ"], ["could", "COULD DO / ทำเมื่อมีทรัพยากร"], ["drop", "DROP / ตัดออกจากขอบเขต"]] as const;
+const priorityOrder = { must: 0, should: 1, could: 2, unassigned: 3, drop: 4 } as const;
+const planStatusLabels = { ready: "READY / พร้อม", waiting: "WAITING / รองานก่อนหน้า", planned: "PLANNED / วางแผนครบ", at_risk: "AT RISK / ควรทบทวน", done: "DONE / เสร็จแล้ว", dropped: "DROPPED / ตัดออก", unavailable: "UNAVAILABLE" } as const;
 const statuses = ["not_started", "in_progress", "done", "at_risk", "delayed", "dropped"] as const;
 
 export default function PlayerApp() {
@@ -72,26 +75,109 @@ function Goal({ state, update }: { state: TeamGameState; update: UpdateTeamState
   return <><h1>GOAL & SCOPE</h1><div className="two-grid">{Object.entries(labels).map(([key, label]) => <Field key={key} label={label}><textarea value={state.missionDefinition[key as keyof typeof labels]} onChange={(event) => update((next) => { next.missionDefinition[key as keyof typeof labels] = event.target.value; })} /></Field>)}</div><Panel title="MISSION APPROVAL / การอนุมัติ"><select value={state.missionApproval.status} onChange={(event) => update((next) => { if (event.target.value === "revise") next.missionApproval.reworkCount++; next.missionApproval.status = event.target.value as typeof next.missionApproval.status; })}><option value="not_requested">Not requested</option><option value="approved">Approved / อนุมัติ</option><option value="conditional">Approved with condition</option><option value="revise">Revise / กลับไปแก้</option></select><textarea placeholder="เงื่อนไขหรือหมายเหตุ" value={state.missionApproval.notes} onChange={(event) => update((next) => { next.missionApproval.notes = event.target.value; })} /></Panel></>;
 }
 
+const applyTaskPriority = (task: Task, priority: TaskPriority) => {
+  task.priority = priority;
+  if (priority === "drop") {
+    task.status = "dropped";
+    task.budgetStatus = "excluded";
+  } else if (task.status === "dropped") {
+    task.status = "not_started";
+    task.budgetStatus = task.cost > 0 ? "undecided" : "included";
+  }
+};
+
 function Priority({ state, update }: { state: TeamGameState; update: UpdateTeamState }) {
-  return <><h1>PRIORITY BATTLE</h1><div className="mechanic-note"><strong>DUE BY คือวันสุดท้ายที่ควรทำงานให้เสร็จ ไม่ใช่วันที่ต้องเริ่มทำ</strong><span>ทีมยังต้องตัดสินใจเองว่าจะเริ่มวันไหน ใช้ใคร และแบ่งชั่วโมงอย่างไร</span></div><BudgetPanel state={state} update={update} /><div className="priority-board">{zones.map(([zone, label]) => <Panel key={zone} title={label}>{state.tasks.filter((task) => task.priorityZone === zone).map((task) => <TaskMini key={task.id} task={task} update={update} />)}<select value="" onChange={(event) => update((next) => { const task = next.tasks.find((item) => item.id === event.target.value); if (task) task.priorityZone = zone; })}><option value="">+ ADD TASK</option>{state.tasks.filter((task) => task.priorityZone !== zone).map((task) => <option key={task.id} value={task.id}>{task.id} · {task.title.th} · {task.effortHours}H · เสร็จไม่เกิน D{task.dueDay}</option>)}</select></Panel>)}</div><Panel title="UNASSIGNED / ยังไม่จัดลำดับ">{state.tasks.filter((task) => task.priorityZone === "unassigned").map((task) => <TaskMini key={task.id} task={task} update={update} />)}</Panel></>;
+  const moveTask = (taskId: string, priority: TaskPriority) => update((next) => {
+    const task = next.tasks.find((item) => item.id === taskId);
+    if (task) {
+      applyTaskPriority(task, priority);
+      if (priority === "drop") next.allocations = next.allocations.filter((allocation) => allocation.taskId !== taskId);
+    }
+    next.planLocked = false;
+  });
+  return <>
+    <h1>PRIORITY BATTLE</h1>
+    <div className="mechanic-note"><strong>Priority บอกความสำคัญ ไม่ได้กำหนดวันทำงานหรือวิธีจ้าง</strong><span>DUE BY เป็นเส้นตาย ส่วนวันเสร็จจริงจะคำนวณจาก Allocation ในหน้า Schedule</span></div>
+    <BudgetPanel state={state} update={update} />
+    <div className="priority-board">{zones.map(([zone, label]) => <Panel key={zone} title={label}>
+      {state.tasks.filter((task) => task.priority === zone).map((task) => <TaskMini key={task.id} task={task} update={update} />)}
+      <select aria-label={`Add task to ${label}`} value="" onChange={(event) => moveTask(event.target.value, zone)}>
+        <option value="">+ ADD TASK</option>
+        {state.tasks.filter((task) => task.priority !== zone).map((task) => <option key={task.id} value={task.id}>{task.id} · {task.title.th} · {task.effortHours}H · Due By D{task.dueDay}</option>)}
+      </select>
+    </Panel>)}</div>
+    <Panel title="UNASSIGNED / ยังไม่เลือก Priority">{state.tasks.filter((task) => task.priority === "unassigned").map((task) => <TaskMini key={task.id} task={task} update={update} />)}</Panel>
+  </>;
 }
 
 function TaskMini({ task, update }: { task: Task; update: UpdateTeamState }) {
   const setTask = (fn: (task: Task) => void) => update((next) => { const target = next.tasks.find((item) => item.id === task.id); if (target) fn(target); next.planLocked = false; });
-  return <article className="task-card"><strong>{task.id} · {task.title.th}</strong><small>{task.title.en}</small><div className="task-facts"><span>EFFORT {task.effortHours}H</span><span>DUE BY D{task.dueDay}</span><span>COST ฿{task.cost.toLocaleString()}</span></div><p className="task-skills">SKILLS: {task.preferredSkills.join(", ")}</p><p className="task-deps">DEPENDENCIES: {task.dependencies.length ? task.dependencies.join(", ") : "ไม่มี"}</p>{task.cost > 0 && <Field label="นำค่าใช้จ่ายนี้เข้าแผนหรือไม่"><select value={task.budgetStatus} onChange={(event) => setTask((target) => { target.budgetStatus = event.target.value as Task["budgetStatus"]; })}><option value="undecided">ยังไม่ตัดสินใจ</option><option value="included">รวมในแผน</option><option value="excluded">ไม่นำมาคิดในแผน</option></select></Field>}<select aria-label={`Priority zone for ${task.id}`} value={task.priorityZone} onChange={(event) => setTask((target) => { target.priorityZone = event.target.value as Task["priorityZone"]; })}><option value="unassigned">Unassigned</option>{zones.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>{task.priorityZone === "do_first" && <input placeholder="ทำไมงานนี้จึงสำคัญ?" value={task.priorityReason} onChange={(event) => setTask((target) => { target.priorityReason = event.target.value; })} />}</article>;
+  return <article className="task-card">
+    <strong>{task.id} · {task.title.th}</strong><small>{task.title.en}</small>
+    <div className="task-facts"><span>EFFORT {task.effortHours}H</span><span>DUE BY D{task.dueDay}</span><span>COST ฿{task.cost.toLocaleString()}</span></div>
+    <p className="task-skills">SKILLS: {task.preferredSkills.join(", ")}</p>
+    <p className="task-deps">DEPENDENCIES: {task.dependencies.length ? task.dependencies.join(", ") : "ไม่มี — ทำคู่ขนานกับงานอื่นได้"}</p>
+    {task.cost > 0 && task.priority !== "drop" && <Field label="นำค่าใช้จ่ายนี้เข้าแผนหรือไม่"><select value={task.budgetStatus} onChange={(event) => setTask((target) => { target.budgetStatus = event.target.value as Task["budgetStatus"]; })}><option value="undecided">ยังไม่ตัดสินใจ</option><option value="included">รวมในแผน</option><option value="excluded">ไม่นำมาคิดในแผน</option></select></Field>}
+    <select aria-label={`Priority for ${task.id}`} value={task.priority} onChange={(event) => update((next) => { const target = next.tasks.find((item) => item.id === task.id); if (!target) return; const priority = event.target.value as TaskPriority; applyTaskPriority(target, priority); if (priority === "drop") next.allocations = next.allocations.filter((allocation) => allocation.taskId !== task.id); next.planLocked = false; })}>
+      <option value="unassigned">ยังไม่เลือก Priority</option>{zones.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+    </select>
+    {(task.priority === "must" || task.priority === "drop") && <input placeholder={task.priority === "must" ? "ทำไมงานนี้จึงเป็น Must Do?" : "เหตุผลที่ตัดออกจากขอบเขต"} value={task.priorityReason} onChange={(event) => setTask((target) => { target.priorityReason = event.target.value; })} />}
+  </article>;
 }
 
 function Plan({ state, update }: { state: TeamGameState; update: UpdateTeamState }) {
   const [taskId, setTaskId] = useState("T01"); const [resourceId, setResourceId] = useState("may"); const [day, setDay] = useState(1); const [hours, setHours] = useState(1);
-  const task = state.tasks.find((item) => item.id === taskId) ?? state.tasks[0]; const resource = state.resources.find((item) => item.id === resourceId) ?? state.resources[0];
+  const plannableTasks = state.tasks.filter((item) => item.priority !== "drop" && item.status !== "dropped").sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority] || a.dueDay - b.dueDay);
+  const task = plannableTasks.find((item) => item.id === taskId) ?? plannableTasks[0] ?? state.tasks[0]; const resource = state.resources.find((item) => item.id === resourceId) ?? state.resources[0];
   const required = getEffectiveEffort(state, task.id); const allocated = getAllocatedEffort(state, task.id); const remaining = Math.max(required - allocated, 0); const used = getUsedHours(state, resource.id, day); const available = getAvailableHours(state, resource.id, day); const skillMatch = task.preferredSkills.includes("Mixed") || task.preferredSkills.some((skill) => resource.skills.includes(skill));
+  const plannedFinish = getTaskPlannedFinishDay(state, task.id); const planStatus = getTaskPlanStatus(state, task.id); const dependencyIssues = getDependencyPlanIssues(state, task.id, day);
   const add = () => { if (!hours || hours < .5) return; update((next) => { next.allocations.push({ id: crypto.randomUUID(), taskId, resourceId, day, hours, source: "internal" }); next.planLocked = false; }); setHours(0); };
-  return <><h1>RESOURCE & SCHEDULE PLAN</h1><div className="mechanic-note"><strong>เลือกวันทำงานได้อิสระ แต่ Task ต้องเสร็จไม่เกิน DUE BY</strong><span>งานหนึ่งแบ่งหลายวันหรือหลายคนได้ และแต่ละคนมี Capacity 6 ชั่วโมงต่อวัน</span></div><BudgetPanel state={state} update={update} /><Panel title="ADD ALLOCATION / จัดสรรชั่วโมง"><div className="allocation-form"><select value={taskId} onChange={(event) => setTaskId(event.target.value)}>{state.tasks.map((item) => <option key={item.id} value={item.id}>{item.id} · {item.title.th} · {getEffectiveEffort(state, item.id)}H · เสร็จไม่เกิน D{item.dueDay}</option>)}</select><select value={resourceId} onChange={(event) => setResourceId(event.target.value)}>{state.resources.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.skills.join("/")}</option>)}</select><select value={day} onChange={(event) => setDay(+event.target.value)}>{Array.from({ length: 10 }, (_, index) => <option key={index} value={index + 1}>Day {index + 1}</option>)}</select><input aria-label="จำนวนชั่วโมง" type="number" min="0" step="0.5" value={hours} onChange={(event) => setHours(+event.target.value)} /><PixelButton onClick={add} disabled={hours < .5}>ALLOCATE / จัดสรร</PixelButton></div></Panel><div className="planning-context"><Panel title="SELECTED TASK / งานที่เลือก"><h3>{task.id} · <Bilingual {...task.title} /></h3><div className="context-metrics"><span>ต้องใช้ <strong>{required}H</strong></span><span>จัดสรรแล้ว <strong>{allocated}H</strong></span><span>เหลือ <strong>{remaining}H</strong></span><span>เสร็จไม่เกิน <strong>D{task.dueDay}</strong></span></div><p>SKILLS: {task.preferredSkills.join(", ")}</p><p>DEPENDENCIES: {task.dependencies.length ? task.dependencies.join(", ") : "ไม่มี"}</p>{task.cost > 0 && <Badge tone={task.budgetStatus === "included" ? "green" : task.budgetStatus === "excluded" ? "muted" : "orange"}>BUDGET: {task.budgetStatus === "included" ? "รวมในแผน" : task.budgetStatus === "excluded" ? "ไม่นำมาคิด" : "ยังไม่ตัดสินใจ"}</Badge>}{day > task.dueDay && <p className="form-warning">วันที่เลือกช้ากว่า Due By ของ Task นี้</p>}</Panel><Panel title="SELECTED RESOURCE / คนที่เลือก"><h3>{resource.name}</h3><p>SKILLS: {resource.skills.join(", ")}</p><CapacityBar used={used} available={available} /><p>Day {day}: ใช้แล้ว {used}H · เหลือ {Math.max(available - used, 0)}H</p>{!skillMatch && <p className="form-warning">Skill ไม่ตรงกับงานโดยตรง แต่ยังสามารถมอบหมายได้</p>}{used > available && <p className="form-warning">ชั่วโมงที่ Allocate แล้วเกิน Capacity {used - available} ชั่วโมง</p>}</Panel></div><div className="schedule"><div />{Array.from({ length: 10 }, (_, index) => <strong key={index}>D{index + 1}</strong>)}{state.resources.map((item) => <div className="schedule-row" key={item.id}><strong><span>{item.name}</span><small>{item.skills.slice(0, 2).join("/")}</small></strong>{Array.from({ length: 10 }, (_, index) => { const date = index + 1; return <CapacityBar key={date} used={getUsedHours(state, item.id, date)} available={getAvailableHours(state, item.id, date)} />; })}</div>)}</div><Panel title="ALLOCATIONS / ชั่วโมงที่จัดสรร">{state.allocations.length === 0 && <p>ยังไม่มีการจัดสรรชั่วโมง</p>}{state.allocations.map((allocation) => { const allocatedTask = state.tasks.find((item) => item.id === allocation.taskId); const allocatedResource = state.resources.find((item) => item.id === allocation.resourceId); return <div className="list-row" key={allocation.id}><span><strong>{allocation.taskId}</strong> {allocatedTask?.title.th} · {allocatedResource?.name} · D{allocation.day} · {allocation.hours}H</span><PixelButton variant="ghost" onClick={() => update((next) => { next.allocations = next.allocations.filter((item) => item.id !== allocation.id); next.planLocked = false; })}>REMOVE / ลบ</PixelButton></div>; })}</Panel></>;
+  return <>
+    <h1>RESOURCE & SCHEDULE PLAN</h1>
+    <div className="mechanic-note"><strong>Planned Finish คำนวณจากวันที่ Allocation สะสมครบ Effort</strong><span>งานที่ไม่มี Dependency ทำคู่ขนานกันได้ ส่วนงานที่รองานอื่นจะตรวจจากแผนจริง ไม่ใช้ Due By เป็นวันเสร็จ</span></div>
+    <BudgetPanel state={state} update={update} />
+    <Panel title="ADD ALLOCATION / จัดสรรชั่วโมง"><div className="allocation-form">
+      <select value={task.id} onChange={(event) => setTaskId(event.target.value)}>{plannableTasks.map((item) => <option key={item.id} value={item.id}>[{item.priority.toUpperCase()}] {item.id} · {item.title.th} · {getEffectiveEffort(state, item.id)}H · {planStatusLabels[getTaskPlanStatus(state, item.id)]}</option>)}</select>
+      <select value={resourceId} onChange={(event) => setResourceId(event.target.value)}>{state.resources.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.skills.join("/")}</option>)}</select>
+      <select value={day} onChange={(event) => setDay(+event.target.value)}>{Array.from({ length: 10 }, (_, index) => <option key={index} value={index + 1}>Day {index + 1}</option>)}</select>
+      <input aria-label="จำนวนชั่วโมง" type="number" min="0" step="0.5" value={hours} onChange={(event) => setHours(+event.target.value)} />
+      <PixelButton onClick={add} disabled={hours < .5}>ALLOCATE / จัดสรร</PixelButton>
+    </div></Panel>
+    <div className="planning-context">
+      <Panel title="SELECTED TASK / งานที่เลือก"><div className="task-heading-row"><h3>{task.id} · <Bilingual {...task.title} /></h3><Badge tone={planStatus === "planned" || planStatus === "done" ? "green" : planStatus === "at_risk" ? "orange" : planStatus === "waiting" ? "purple" : "yellow"}>{planStatusLabels[planStatus]}</Badge></div>
+        <div className="context-metrics"><span>ต้องใช้ <strong>{required}H</strong></span><span>จัดสรรแล้ว <strong>{allocated}H</strong></span><span>เหลือ <strong>{remaining}H</strong></span><span>Planned Finish <strong>{plannedFinish ? `D${plannedFinish}` : "—"}</strong></span><span>Due By <strong>D{task.dueDay}</strong></span></div>
+        <p>PRIORITY: {task.priority.toUpperCase()}</p><p>SKILLS: {task.preferredSkills.join(", ")}</p><p>DEPENDENCIES: {task.dependencies.length ? task.dependencies.join(", ") : "ไม่มี — ทำคู่ขนานได้"}</p>
+        {task.cost > 0 && <Badge tone={task.budgetStatus === "included" ? "green" : task.budgetStatus === "excluded" ? "muted" : "orange"}>BUDGET: {task.budgetStatus === "included" ? "รวมในแผน" : task.budgetStatus === "excluded" ? "ไม่นำมาคิด" : "ยังไม่ตัดสินใจ"}</Badge>}
+        {dependencyIssues.map((issue) => <p className="dependency-warning" key={issue.dependencyId}><strong>{issue.dependencyId}</strong>: {issue.kind === "timing" ? `วางแผนเสร็จ D${issue.plannedFinishDay} งานนี้จึงเริ่มได้เร็วสุด D${issue.earliestStartDay}` : issue.kind === "dropped" ? "งานต้นทางถูกตัดออกจากขอบเขต" : `ยังจัดสรรไม่ครบ ${issue.allocated}/${issue.required}H`}</p>)}
+        {day > task.dueDay && <p className="form-warning">วันที่เลือกช้ากว่า Due By ของ Task นี้</p>}
+        {plannedFinish !== null && plannedFinish > task.dueDay && <p className="form-warning">แผนปัจจุบันเสร็จ D{plannedFinish} ซึ่งช้ากว่า Due By D{task.dueDay}</p>}
+        {allocated > required && <p className="form-warning">จัดสรรเกิน Effort ที่ต้องใช้ {allocated - required} ชั่วโมง</p>}
+      </Panel>
+      <Panel title="SELECTED RESOURCE / คนที่เลือก"><h3>{resource.name}</h3><p>SKILLS: {resource.skills.join(", ")}</p><CapacityBar used={used} available={available} /><p>Day {day}: ใช้แล้ว {used}H · เหลือ {Math.max(available - used, 0)}H</p>{!skillMatch && <p className="form-warning">Skill ไม่ตรงกับงานโดยตรง แต่ยังสามารถมอบหมายได้</p>}{used > available && <p className="form-warning">ชั่วโมงที่ Allocate แล้วเกิน Capacity {used - available} ชั่วโมง</p>}</Panel>
+    </div>
+    <div className="schedule"><div />{Array.from({ length: 10 }, (_, index) => <strong key={index}>D{index + 1}</strong>)}{state.resources.map((item) => <div className="schedule-row" key={item.id}><strong><span>{item.name}</span><small>{item.skills.slice(0, 2).join("/")}</small></strong>{Array.from({ length: 10 }, (_, index) => { const date = index + 1; return <CapacityBar key={date} used={getUsedHours(state, item.id, date)} available={getAvailableHours(state, item.id, date)} />; })}</div>)}</div>
+    <Panel title="ALLOCATIONS / ชั่วโมงที่จัดสรร">{state.allocations.length === 0 && <p>ยังไม่มีการจัดสรรชั่วโมง</p>}{state.allocations.map((allocation) => { const allocatedTask = state.tasks.find((item) => item.id === allocation.taskId); const allocatedResource = state.resources.find((item) => item.id === allocation.resourceId); return <div className="list-row" key={allocation.id}><span><strong>{allocation.taskId}</strong> {allocatedTask?.title.th} · {allocatedResource?.name} · D{allocation.day} · {allocation.hours}H</span><PixelButton variant="ghost" onClick={() => update((next) => { next.allocations = next.allocations.filter((item) => item.id !== allocation.id); next.planLocked = false; })}>REMOVE / ลบ</PixelButton></div>; })}</Panel>
+  </>;
 }
 
 function Market({ state, update, goTo }: { state: TeamGameState; update: UpdateTeamState; goTo: (tab: number) => void }) {
   const changeVendor = (vendorId: string, action: "add" | "remove") => update((next) => { const vendor = next.vendors.find((item) => item.id === vendorId); if (!vendor) return; vendor.planStatus = action === "add" ? "planned" : "available"; next.planLocked = false; if (vendorId === "V06") next.networkRisk = action === "remove" && next.appliedEventCodes.includes("E01"); if (vendorId === "V12" && next.cateringCutoffDay) next.postCutoffIncreaseLimit = action === "add" ? .3 : .1; });
-  return <><h1>VENDOR MARKETPLACE</h1><div className="mechanic-note"><strong>ช่วงวางแผนสามารถเพิ่มและนำ Vendor ออกจากแผนได้</strong><span>เมื่อกด Lock Plan & Commit แล้ว การยกเลิก Vendor ที่ Commit ต้องบันทึก Decision Request</span></div><BudgetPanel state={state} update={update} allowCommit /><div className="card-grid vendor-grid">{state.vendors.filter((vendor) => vendor.unlocked).map((vendor) => <Panel key={vendor.id} title={`${vendor.id} · ${vendor.category}`}><h2><Bilingual {...vendor.name} /></h2><strong className="vendor-price">฿{vendor.cost.toLocaleString()}</strong><p>{vendor.benefit.th}</p><small>COORDINATION: {vendor.coordination}</small><div className="vendor-action">{vendor.planStatus === "available" && <PixelButton onClick={() => changeVendor(vendor.id, "add")}>ADD TO PLAN / เพิ่มในแผน</PixelButton>}{vendor.planStatus === "planned" && <><Badge tone="yellow">IN PLAN / อยู่ในแผน</Badge><PixelButton variant="ghost" onClick={() => changeVendor(vendor.id, "remove")}>REMOVE / นำออก</PixelButton></>}{vendor.planStatus === "committed" && <><Badge tone="green">COMMITTED / ยืนยันจ้างแล้ว</Badge><p className="committed-note">หากต้องการยกเลิก ให้บันทึกเหตุผลและข้อเสนอใน Decision Request</p><PixelButton variant="ghost" onClick={() => goTo(10)}>ไปที่ DECISION REQUEST</PixelButton></>}</div></Panel>)}</div></>;
+  const vendorCards = state.vendors.filter((vendor) => vendor.unlocked).map((vendor) => ({ vendor, openTasks: getVendorSupportedOpenTasks(state, vendor) }))
+    .sort((a, b) => b.openTasks.length - a.openTasks.length || a.vendor.id.localeCompare(b.vendor.id));
+  const recommendedCount = vendorCards.filter(({ vendor, openTasks }) => vendor.planStatus === "available" && openTasks.length > 0).length;
+  return <>
+    <h1>VENDOR MARKETPLACE</h1>
+    <div className="mechanic-note"><strong>Vendor ใช้เติม Skill หรือ Capacity gap ที่พบจาก Schedule</strong><span>ระบบแนะนำจาก Task ที่ยังจัดสรรไม่ครบ แต่ผู้เล่นยังเป็นผู้ตัดสินใจว่าจะจ้างหรือปรับแผนภายใน</span></div>
+    <BudgetPanel state={state} update={update} />
+    <div className="vendor-recommendation-summary"><strong>RECOMMENDED FOR YOUR PLAN / แนะนำสำหรับแผนนี้</strong><span>{recommendedCount} Vendor ที่ตรงกับ Task ซึ่งยังมีชั่วโมงคงเหลือ</span></div>
+    <PlanReview state={state} update={update} />
+    <div className="card-grid vendor-grid">{vendorCards.map(({ vendor, openTasks }) => <Panel key={vendor.id} title={`${vendor.id} · ${vendor.category}`} className={openTasks.length ? "vendor-recommended" : ""}>
+      <div className="vendor-title-row"><h2><Bilingual {...vendor.name} /></h2>{openTasks.length > 0 && <Badge tone="purple">RECOMMENDED</Badge>}</div>
+      <strong className="vendor-price">฿{vendor.cost.toLocaleString()}</strong><p>{vendor.benefit.th}</p><small>COORDINATION: {vendor.coordination}</small>
+      {openTasks.length > 0 ? <div className="vendor-task-match"><strong>ช่วย Task ที่ยังวางแผนไม่ครบ</strong><span>{openTasks.slice(0, 4).map((task) => `${task.id} ${task.priority === "must" ? "· MUST" : ""}`).join(" · ")}</span></div> : <p className="vendor-no-match">ยังไม่พบ Task gap ที่ตรงกับ Vendor นี้ในแผนปัจจุบัน</p>}
+      <div className="vendor-action">{vendor.planStatus === "available" && <PixelButton onClick={() => changeVendor(vendor.id, "add")}>ADD TO PLAN / เพิ่มในแผน</PixelButton>}{vendor.planStatus === "planned" && <><Badge tone="yellow">IN PLAN / อยู่ในแผน</Badge><PixelButton variant="ghost" onClick={() => changeVendor(vendor.id, "remove")}>REMOVE / นำออก</PixelButton></>}{vendor.planStatus === "committed" && <><Badge tone="green">COMMITTED / ยืนยันจ้างแล้ว</Badge><p className="committed-note">หากต้องการยกเลิก ให้บันทึกเหตุผลและข้อเสนอใน Decision Request</p><PixelButton variant="ghost" onClick={() => goTo(10)}>ไปที่ DECISION REQUEST</PixelButton></>}</div>
+    </Panel>)}</div>
+  </>;
 }
 
 function Control({ state, update, summary }: { state: TeamGameState; update: UpdateTeamState; summary: ReturnType<typeof getSummary> }) {

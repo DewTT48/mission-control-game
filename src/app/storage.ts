@@ -3,6 +3,16 @@ import { createInitialFacilitatorState, createInitialTeamState } from "../engine
 import type { FacilitatorState, TeamGameState } from "../types/game";
 
 type LegacyVendor = TeamGameState["vendors"][number] & { hired?: boolean };
+type LegacyTask = TeamGameState["tasks"][number] & { priorityZone?: "unassigned" | "do_first" | "plan_next" | "delegate_outsource" | "defer_drop" };
+
+const migratePriority = (task: LegacyTask): TeamGameState["tasks"][number]["priority"] => {
+  if (task.priority) return task.priority;
+  if (task.status === "dropped") return "drop";
+  if (task.priorityZone === "do_first") return "must";
+  if (task.priorityZone === "plan_next" || task.priorityZone === "delegate_outsource") return "should";
+  if (task.priorityZone === "defer_drop") return "could";
+  return "unassigned";
+};
 
 export function normalizeTeamState(saved: TeamGameState): TeamGameState {
   const initial = createInitialTeamState();
@@ -12,8 +22,9 @@ export function normalizeTeamState(saved: TeamGameState): TeamGameState {
     missionDefinition: { ...initial.missionDefinition, ...saved.missionDefinition },
     missionApproval: { ...initial.missionApproval, ...saved.missionApproval },
     finalReview: { ...initial.finalReview, ...saved.finalReview },
-    tasks: saved.tasks.map((task) => ({
+    tasks: (saved.tasks as LegacyTask[]).map((task) => ({
       ...task,
+      priority: migratePriority(task),
       budgetStatus: task.budgetStatus ?? (task.cost === 0 ? "included" : task.status === "dropped" ? "excluded" : "included"),
     })),
     resources: saved.resources ?? initial.resources,
@@ -21,6 +32,7 @@ export function normalizeTeamState(saved: TeamGameState): TeamGameState {
     vendors: (saved.vendors as LegacyVendor[]).map((vendor) => ({
       ...vendor,
       planStatus: vendor.planStatus ?? (vendor.hired ? "committed" : "available"),
+      supportsTaskIds: vendor.supportsTaskIds ?? initial.vendors.find((candidate) => candidate.id === vendor.id)?.supportsTaskIds ?? [],
     })),
     planLocked: saved.planLocked ?? false,
     budgetRationale: saved.budgetRationale ?? "",

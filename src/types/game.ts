@@ -1,6 +1,6 @@
 export type LocalizedText = { th: string; en: string };
 export type TaskStatus = "not_started" | "in_progress" | "done" | "at_risk" | "delayed" | "dropped";
-export type PriorityZone = "unassigned" | "do_first" | "plan_next" | "delegate_outsource" | "defer_drop";
+export type TaskPriority = "unassigned" | "must" | "should" | "could" | "drop";
 export type MissionStatus = "on_track" | "at_risk" | "critical";
 export type TaskBudgetStatus = "undecided" | "included" | "excluded";
 export type VendorPlanStatus = "available" | "planned" | "committed";
@@ -26,7 +26,7 @@ export type Task = {
   dependencies: string[];
   facilitatorClassification: "critical" | "supporting" | "optional";
   status: TaskStatus;
-  priorityZone: PriorityZone;
+  priority: TaskPriority;
   priorityReason: string;
   issue: string;
   nextAction: string;
@@ -52,6 +52,7 @@ export type Vendor = {
   availability: "planning" | "later_planning" | "situational";
   unlocked: boolean;
   planStatus: VendorPlanStatus;
+  supportsTaskIds: string[];
 };
 
 export type GameEvent = {

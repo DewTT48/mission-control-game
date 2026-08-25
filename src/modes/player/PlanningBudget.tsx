@@ -1,20 +1,11 @@
 import { getBudgetBreakdown } from "../../engine/calculations";
 import type { TeamGameState } from "../../types/game";
-import { Badge, Field, Panel, PixelButton } from "../../components/ui";
-import { canCommitPlan, commitPlan as commitPlanState } from "../../engine/planning";
+import { Field, Panel } from "../../components/ui";
 
 export type UpdateTeamState = (fn: (state: TeamGameState) => void) => void;
 
-export function BudgetPanel({ state, update, allowCommit = false }: { state: TeamGameState; update: UpdateTeamState; allowCommit?: boolean }) {
+export function BudgetPanel({ state, update }: { state: TeamGameState; update: UpdateTeamState }) {
   const budget = getBudgetBreakdown(state);
-  const canCommit = canCommitPlan(state);
-  const pendingVendors = state.vendors.filter((vendor) => vendor.planStatus === "planned").length;
-
-  const commitPlan = () => {
-    if (!canCommit) return;
-    if (!window.confirm("ยืนยันแผนและ Commit Vendor ที่อยู่ในแผนหรือไม่? หลังจากนี้การยกเลิก Vendor ที่ Commit แล้วต้องบันทึก Decision Request")) return;
-    update((next) => { commitPlanState(next); });
-  };
 
   return <Panel title="BUDGET PLAN / แผนงบประมาณ" className="budget-panel">
     <div className="budget-metrics">
@@ -42,11 +33,6 @@ export function BudgetPanel({ state, update, allowCommit = false }: { state: Tea
       </div>
     </details>
 
-    {allowCommit && <div className="commit-plan-row">
-      <div>{state.planLocked ? <Badge tone="green">✓ PLAN COMMITTED / ยืนยันแผนแล้ว</Badge> : <Badge tone="yellow">PLAN DRAFT / แผนฉบับร่าง</Badge>}<small>{pendingVendors > 0 ? ` มี Vendor รอ Commit ${pendingVendors} รายการ` : ""}</small></div>
-      <PixelButton onClick={commitPlan} disabled={!canCommit || (state.planLocked && pendingVendors === 0)}>LOCK PLAN & COMMIT / ยืนยันแผนและ Vendor</PixelButton>
-    </div>}
-    {allowCommit && budget.overBudget && !state.budgetRationale.trim() && <p className="form-warning">กรุณาบันทึกเหตุผลและแนวทางจัดการงบเกินก่อนยืนยันแผน</p>}
   </Panel>;
 }
 

@@ -2,7 +2,7 @@ import type { GameEvent, Resource, Task, Vendor } from "../../types/game";
 
 const task = (id: string, th: string, en: string, effortHours: number, skills: string[], dueDay: number, cost: number, dependencies: string[], facilitatorClassification: Task["facilitatorClassification"]): Task => ({
   id, title: { th, en }, effortHours, preferredSkills: skills, dueDay, cost, dependencies,
-  facilitatorClassification, status: "not_started", priorityZone: "unassigned", priorityReason: "", issue: "", nextAction: "",
+  facilitatorClassification, status: "not_started", priority: "unassigned", priorityReason: "", issue: "", nextAction: "",
   budgetStatus: cost > 0 ? "undecided" : "included",
 });
 
@@ -37,28 +37,28 @@ export const tasks: Task[] = [
   task("T20", "จัดเตรียมของที่ระลึก", "Arrange Participant Gifts", 4, ["Admin", "Procurement"], 8, 15000, [], "optional"),
 ];
 
-const vendor = (id: string, th: string, en: string, category: string, cost: number, benefit: string, coordination: string, availability: Vendor["availability"]): Vendor => ({
+const vendor = (id: string, th: string, en: string, category: string, cost: number, benefit: string, coordination: string, availability: Vendor["availability"], supportsTaskIds: string[]): Vendor => ({
   id, name: { th, en }, category, cost, benefit: { th: benefit, en: benefit }, coordination, availability,
-  unlocked: availability !== "situational", planStatus: "available",
+  unlocked: availability !== "situational", planStatus: "available", supportsTaskIds,
 });
 
 export const vendors: Vendor[] = [
-  vendor("V01", "สตูดิโอออกแบบ", "Design Studio", "Communication", 10000, "Design/Media 12 vendor-hours", "Bank/May 2h", "planning"),
-  vendor("V02", "ทีมสนับสนุนงานอีเวนต์", "Event Support Crew", "Capacity", 8000, "12h during D7–D10", "1h", "later_planning"),
-  vendor("V03", "ทีมช่วยลงทะเบียนชั่วคราว", "Temporary Registration Staff", "Capacity", 6000, "8h during D8–D10", "1h", "later_planning"),
-  vendor("V04", "ทีม Runner หน้างาน", "Event Runner Service", "Delivery", 5000, "6h during D6–D10", "1h", "later_planning"),
-  vendor("V05", "แพ็กเกจถ่ายทอดสด", "Streaming Production Package", "Technology", 18000, "Streaming 12h + Backup Encoder", "Ton 3h", "planning"),
-  vendor("V06", "อัปเกรด Internet", "Internet Upgrade", "Technology", 12000, "Resolve network capacity risk", "None", "situational"),
-  vendor("V07", "ชุดอุปกรณ์ AV สำรอง", "AV Backup Kit", "Technology", 8000, "AV backup protection", "None", "situational"),
-  vendor("V08", "ระบบลงทะเบียนสำเร็จรูป", "Registration Platform Pro", "Technology", 7000, "T05 effort 6h → 2h", "Included", "planning"),
-  vendor("V09", "บริการช่วยสื่อสาร", "Communication Support Package", "Communication", 9000, "Communication 10 vendor-hours", "Ploy 2h", "planning"),
-  vendor("V10", "บริการผลิตงานด่วน", "Express Print & Production", "Production", 8000, "Reduce lead time by 1 day", "None", "later_planning"),
-  vendor("V11", "ผู้ผลิตสำรอง", "Backup Production Vendor", "Production", 14000, "Transfer delayed production", "+5,000 switching cost", "situational"),
-  vendor("V12", "แพ็กเกจอาหารแบบยืดหยุ่น", "Flexible Catering Contract", "Flexibility", 6000, "Post-cutoff increase up to 30%", "Buy before D6", "later_planning"),
-  vendor("V13", "ทีมสนับสนุน Workshop", "Workshop Facilitation Support", "Capacity", 9000, "Facilitation 8 vendor-hours", "May 1h", "planning"),
-  vendor("V14", "ทีมถ่ายภาพและวิดีโอ", "Photo & Video Crew", "Production", 12000, "E11 effort becomes 2h review", "1h", "later_planning"),
-  vendor("V15", "ผู้ช่วยโครงการอิสระ", "Generalist Freelancer", "Capacity", 7000, "General 10h during D2–D9", "1h", "planning"),
-  vendor("V16", "ผู้ประสานงานภายนอก", "Project Coordination Service", "Capacity", 9000, "Coordination 10 vendor-hours", "May 1h", "planning"),
+  vendor("V01", "สตูดิโอออกแบบ", "Design Studio", "Communication", 10000, "Design/Media 12 vendor-hours", "Bank/May 2h", "planning", ["T07", "T13", "T19", "T21"]),
+  vendor("V02", "ทีมสนับสนุนงานอีเวนต์", "Event Support Crew", "Capacity", 8000, "12h during D7–D10", "1h", "later_planning", ["T12", "T13", "T14", "T17", "T20"]),
+  vendor("V03", "ทีมช่วยลงทะเบียนชั่วคราว", "Temporary Registration Staff", "Capacity", 6000, "8h during D8–D10", "1h", "later_planning", []),
+  vendor("V04", "ทีม Runner หน้างาน", "Event Runner Service", "Delivery", 5000, "6h during D6–D10", "1h", "later_planning", ["T10", "T12", "T13", "T14", "T17", "T20"]),
+  vendor("V05", "แพ็กเกจถ่ายทอดสด", "Streaming Production Package", "Technology", 18000, "Streaming 12h + Backup Encoder", "Ton 3h", "planning", ["T08", "T09", "T18"]),
+  vendor("V06", "อัปเกรด Internet", "Internet Upgrade", "Technology", 12000, "Resolve network capacity risk", "None", "situational", ["T09"]),
+  vendor("V07", "ชุดอุปกรณ์ AV สำรอง", "AV Backup Kit", "Technology", 8000, "AV backup protection", "None", "situational", ["T09", "T18"]),
+  vendor("V08", "ระบบลงทะเบียนสำเร็จรูป", "Registration Platform Pro", "Technology", 7000, "T05 effort 6h → 2h", "Included", "planning", ["T05"]),
+  vendor("V09", "บริการช่วยสื่อสาร", "Communication Support Package", "Communication", 9000, "Communication 10 vendor-hours", "Ploy 2h", "planning", ["T02", "T03", "T06", "T16", "T21"]),
+  vendor("V10", "บริการผลิตงานด่วน", "Express Print & Production", "Production", 8000, "Reduce lead time by 1 day", "None", "later_planning", ["T07", "T12", "T13", "T20"]),
+  vendor("V11", "ผู้ผลิตสำรอง", "Backup Production Vendor", "Production", 14000, "Transfer delayed production", "+5,000 switching cost", "situational", ["T13", "T14"]),
+  vendor("V12", "แพ็กเกจอาหารแบบยืดหยุ่น", "Flexible Catering Contract", "Flexibility", 6000, "Post-cutoff increase up to 30%", "Buy before D6", "later_planning", ["T10"]),
+  vendor("V13", "ทีมสนับสนุน Workshop", "Workshop Facilitation Support", "Capacity", 9000, "Facilitation 8 vendor-hours", "May 1h", "planning", ["T11", "T12", "T17"]),
+  vendor("V14", "ทีมถ่ายภาพและวิดีโอ", "Photo & Video Crew", "Production", 12000, "E11 effort becomes 2h review", "1h", "later_planning", ["T19", "T21"]),
+  vendor("V15", "ผู้ช่วยโครงการอิสระ", "Generalist Freelancer", "Capacity", 7000, "General 10h during D2–D9", "1h", "planning", ["T01", "T02", "T03", "T05", "T06", "T07", "T10", "T11", "T12", "T14", "T15", "T16", "T18", "T19", "T20"]),
+  vendor("V16", "ผู้ประสานงานภายนอก", "Project Coordination Service", "Capacity", 9000, "Coordination 10 vendor-hours", "May 1h", "planning", ["T01", "T02", "T04", "T14", "T15", "T17"]),
 ];
 
 const event = (code: string, th: string, en: string, type: GameEvent["type"], difficulty: GameEvent["difficulty"], timing: string, announcementTh: string, announcementEn: string, effect: string, notice: string, debrief: string): GameEvent => ({

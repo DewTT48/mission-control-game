@@ -24,7 +24,7 @@ export const applyEvent = (source: TeamGameState, rawCode: string): { state: Tea
   if (code === "E09") state.confirmedAttendance = 92;
   if (code === "E10") { state.cateringCutoffDay = 7; state.postCutoffIncreaseLimit = isVendorActive(state, "V12") ? 0.3 : 0.1; }
   if (code === "E11" && !task("T21")) {
-    const newTask: Task = { id: "T21", title: { th: "จัดทำ Executive Highlight Video", en: "Produce Executive Highlight Video" }, effortHours: 10, preferredSkills: ["Media", "Content"], dueDay: 11, cost: 0, dependencies: [], facilitatorClassification: "supporting", status: "not_started", priorityZone: "unassigned", priorityReason: "", issue: "", nextAction: "", budgetStatus: "included" };
+    const newTask: Task = { id: "T21", title: { th: "จัดทำ Executive Highlight Video", en: "Produce Executive Highlight Video" }, effortHours: 10, preferredSkills: ["Media", "Content"], dueDay: 11, cost: 0, dependencies: [], facilitatorClassification: "supporting", status: "not_started", priority: "unassigned", priorityReason: "", issue: "", nextAction: "", budgetStatus: "included" };
     state.tasks.push(newTask);
   }
   if (code === "E12") { const t13 = task("T13"); if (t13 && t13.status !== "dropped") t13.dueDay = Math.min(t13.dueDay, 6); }

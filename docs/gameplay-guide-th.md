@@ -78,12 +78,14 @@ Player และ Facilitator ไม่ sync กันอัตโนมัติ
 
 ### 5.6 PRIORITY
 
-จัดงาน T01–T20 ลงสี่โซน:
+จัดงาน T01–T20 ลงสี่ระดับความสำคัญ:
 
-- DO FIRST: กระทบ deadline, dependency, risk หรือ mission สูง
-- PLAN NEXT: สำคัญแต่ยังจัดลำดับเวลาได้
-- DELEGATE: ควรเกิดขึ้นแต่ไม่จำเป็นต้องใช้ capacity หลัก
-- DEFER/DROP: impact ต่ำและตัดได้เมื่อเงื่อนไขเปลี่ยน
+- MUST DO: จำเป็นต่อ Mission และต้องมีแผนรองรับ
+- SHOULD DO: สำคัญ แต่ยังปรับวิธีหรือจังหวะได้
+- COULD DO: ทำเมื่อยังมีงบและทรัพยากร
+- DROP: ตัดออกจากขอบเขต พร้อมบันทึกเหตุผล
+
+Priority บอกความสำคัญ ไม่ได้กำหนดวันทำงานหรือบังคับว่าจะต้องทำเองหรือจ้าง Vendor ระบบจะใช้ Priority ช่วยเรียง Task และเตือนเมื่อ Must Do ยังวางแผนไม่ครบ ส่วน Vendor จะถูกแนะนำภายหลังจาก Skill หรือ Capacity gap ที่พบใน Schedule
 
 อย่าจัดจากความรู้สึกว่า “งานนี้ดูด่วน” เพียงอย่างเดียว ให้ดู Outcome, due date, dependency และ risk
 
@@ -97,6 +99,12 @@ Player และ Facilitator ไม่ sync กันอัตโนมัติ
 
 เมื่อเลือก Task ระบบจะแสดง Effort ที่ต้องใช้ จัดสรรแล้ว เหลืออีกกี่ชั่วโมง Due By, Skills และ Dependencies เมื่อเลือกคน ระบบจะแสดง Skills และ Capacity ของวันนั้น จึงไม่จำเป็นต้องย้อนกลับหน้า Team หรือ Priority เพื่อจำข้อมูล
 
+`PLANNED FINISH` คำนวณจากวันแรกที่ Allocation สะสมครบ Effort จริง ไม่ได้คัดลอกจาก Due By เช่น T03 ต้องใช้ 6H และถูกจัดสรร D1 3H + D2 3H ระบบจะถือว่า Planned Finish คือ D2 แม้ Due By จะเป็น D3
+
+งานที่ไม่มี Dependency ต่อกันทำคู่ขนานได้ งานที่มี Dependency จะถูกตรวจจาก Planned Finish ของงานต้นทาง หากงานต้นทางเสร็จจริงและถูกเปลี่ยนสถานะเป็น Done ระบบจะถือว่า Dependency พร้อมทันที การย้ายหรือลบ Allocation จะทำให้ระบบตรวจความขัดแย้งใหม่อัตโนมัติ
+
+สถานะในหน้า Schedule มี READY, WAITING, PLANNED และ AT RISK เพื่อบอกความพร้อมของแผนโดยไม่จัดตารางแทนผู้เล่น ผู้เล่นยังสามารถวางงานที่มี Conflict ไว้ชั่วคราวเพื่อทดลองแผนได้ แต่ต้องทบทวนก่อน Lock Plan
+
 - 0–4h: Available
 - มากกว่า 4–6h: Busy
 - มากกว่า 6h: Over Capacity
@@ -105,7 +113,9 @@ Player และ Facilitator ไม่ sync กันอัตโนมัติ
 
 ### 5.8 MARKET
 
-เลือก Vendor เพื่อซื้อ capacity, technology, delivery speed, risk reduction หรือ flexibility ปุ่ม `ADD TO PLAN` จะเพิ่ม Vendor เข้า Planned Spend และสามารถ `REMOVE` ได้ในช่วงร่างแผน
+เลือก Vendor เพื่อซื้อ capacity, technology, delivery speed, risk reduction หรือ flexibility ระบบจะแสดง Vendor ที่ตรงกับ Task ซึ่งยังจัดสรรไม่ครบไว้ก่อน พร้อมระบุ Task ที่ Vendor ช่วยได้ ปุ่ม `ADD TO PLAN` จะเพิ่ม Vendor เข้า Planned Spend และสามารถ `REMOVE` ได้ในช่วงร่างแผน
+
+ก่อน Lock Plan ส่วน Plan Review จะสรุป Must Do ที่ยังไม่ครบ, Dependency Conflict, Over Capacity, Planned Finish ที่เกิน Due By และ Task ที่ยังไม่เลือก Priority ประเด็นเหล่านี้ใช้ช่วยทบทวน ไม่ใช่เฉลยคำตอบของเกม ทีมยังสามารถยืนยันแผนที่มีความเสี่ยงและรับผิดชอบเหตุผลของตนได้
 
 เมื่อพร้อมและผ่านการทบทวนแผน ให้กด `LOCK PLAN & COMMIT` หลังจากนั้น Vendor จะเปลี่ยนเป็น `COMMITTED` หากต้องการยกเลิกต้องบันทึกเหตุผล ผลกระทบ และข้อเสนอผ่าน Decision Request
 
