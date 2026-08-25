@@ -15,6 +15,11 @@ The app deliberately has no backend, accounts, realtime synchronization, random 
 - [คู่มือ Facilitator](docs/facilitator-guide-th.md)
 - [หน้ารวมคู่มือ](docs/gameplay-guide-th.md)
 
+PDF พร้อมพิมพ์ (ฝังฟอนต์ IBM Plex Sans Thai):
+
+- [PDF คู่มือผู้เล่น](output/pdf/mission-control-player-guide-th.pdf)
+- [PDF คู่มือ Facilitator](output/pdf/mission-control-facilitator-guide-th.pdf)
+
 ## Quick start
 
 Requirements: Node.js 20 or newer.

@@ -6,11 +6,15 @@
 
 [เปิดคู่มือผู้เล่น](player-guide-th.md)
 
+[ดาวน์โหลด PDF คู่มือผู้เล่น](../output/pdf/mission-control-player-guide-th.pdf)
+
 อธิบายวิธีเล่นครบทั้ง 12 หน้า ตั้งแต่ทำความเข้าใจ Mission, ถาม Sponsor, จัด Priority, วาง Capacity และ Dependency, เลือก Vendor/Package, รับ Event, สื่อสาร Status ไปจนถึง Final Review โดยไม่เปิดเผย Sponsor facts หรือ Event ล่วงหน้า
 
 ## สำหรับ Facilitator
 
 [เปิดคู่มือ Facilitator](facilitator-guide-th.md)
+
+[ดาวน์โหลด PDF คู่มือ Facilitator](../output/pdf/mission-control-facilitator-guide-th.pdf)
 
 ประกอบด้วยการเตรียมคลาส, Run Sheet, Sponsor Source of Truth, Approval Gate, Budget Facilitation, Event Guide ครบ 12 เหตุการณ์, Scoring Rubric, Debrief และ Troubleshooting
 
