@@ -16,17 +16,26 @@ const migratePriority = (task: LegacyTask): TeamGameState["tasks"][number]["prio
 
 export function normalizeTeamState(saved: TeamGameState): TeamGameState {
   const initial = createInitialTeamState();
+  const hadLegacyHighlightTask = saved.tasks.some((task) => task.id === "T21");
+  const eventNotes = { ...(saved.eventNotes ?? {}) };
+  if (hadLegacyHighlightTask) delete eventNotes.E11;
   return {
     ...initial,
     ...saved,
     missionDefinition: { ...initial.missionDefinition, ...saved.missionDefinition },
     missionApproval: { ...initial.missionApproval, ...saved.missionApproval },
     finalReview: { ...initial.finalReview, ...saved.finalReview },
-    tasks: (saved.tasks as LegacyTask[]).map((task) => ({
-      ...task,
-      priority: migratePriority(task),
-      budgetStatus: task.budgetStatus ?? (task.cost === 0 ? "included" : task.status === "dropped" ? "excluded" : "included"),
-    })),
+    tasks: (saved.tasks as LegacyTask[]).filter((task) => task.id !== "T21").map((task) => {
+      const baseline = initial.tasks.find((candidate) => candidate.id === task.id);
+      return {
+        ...baseline,
+        ...task,
+        priority: migratePriority(task),
+        budgetStatus: task.budgetStatus ?? (task.cost === 0 ? "included" : task.status === "dropped" ? "excluded" : "included"),
+        budgetOptions: baseline?.budgetOptions ?? task.budgetOptions,
+        selectedBudgetOptionId: task.selectedBudgetOptionId ?? baseline?.selectedBudgetOptionId,
+      };
+    }),
     resources: saved.resources ?? initial.resources,
     allocations: saved.allocations ?? [],
     vendors: (saved.vendors as LegacyVendor[]).map((vendor) => ({
@@ -36,6 +45,9 @@ export function normalizeTeamState(saved: TeamGameState): TeamGameState {
     })),
     planLocked: saved.planLocked ?? false,
     budgetRationale: saved.budgetRationale ?? "",
+    vendorDiscounts: saved.vendorDiscounts ?? {},
+    appliedEventCodes: hadLegacyHighlightTask ? saved.appliedEventCodes.filter((code) => code !== "E11") : saved.appliedEventCodes,
+    eventNotes,
   };
 }
 

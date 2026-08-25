@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createInitialTeamState } from "../engine/state";
 import { applyEvent } from "../engine/events";
-import { getBudgetBreakdown, getCapacityStatus, getDependencyPlanIssues, getEffectiveEffort, getPlanReview, getPlannedSpend, getSameDayDependencyHandoffs, getTaskPlannedFinishDay, getVendorSupportedOpenTasks, getUsedHours } from "../engine/calculations";
+import { getBudgetBreakdown, getCapacityStatus, getDependencyPlanIssues, getEffectiveEffort, getPlanReview, getPlannedSpend, getSameDayDependencyHandoffs, getTaskBudgetCost, getTaskPlannedFinishDay, getVendorCost, getVendorSupportedOpenTasks, getUsedHours } from "../engine/calculations";
 import { normalizeTeamState } from "../app/storage";
 import type { TeamGameState } from "../types/game";
 import { canCommitPlan, commitPlan } from "../engine/planning";
@@ -28,6 +28,10 @@ describe("Mission Control engine", () => {
     state.vendors.find((vendor) => vendor.id === "V01")!.planStatus = "planned";
     expect(getPlannedSpend(state)).toBe(52000);
     expect(getBudgetBreakdown(state).remaining).toBe(68000);
+    const catering = state.tasks.find((task) => task.id === "T10")!;
+    catering.selectedBudgetOptionId = "lean";
+    expect(getTaskBudgetCost(catering)).toBe(34000);
+    expect(getPlannedSpend(state)).toBe(44000);
   });
 
   it("applies event mechanics once", () => {
@@ -40,9 +44,22 @@ describe("Mission Control engine", () => {
     state = applyEvent(state, "E02").state;
     expect(state.tasks.find((t) => t.id === "T17")?.dueDay).toBe(7);
     state = applyEvent(state, "E11").state;
-    expect(state.tasks.filter((t) => t.id === "T21")).toHaveLength(1);
-    state.vendors.find((v) => v.id === "V14")!.planStatus = "planned";
-    expect(getEffectiveEffort(state, "T21")).toBe(2);
+    expect(state.tasks.filter((t) => t.id === "T21")).toHaveLength(0);
+    expect(getEffectiveEffort(state, "T03")).toBe(9);
+    expect(state.tasks.find((t) => t.id === "T04")?.status).toBe("at_risk");
+    state = applyEvent(state, "E07").state;
+    const streamingVendor = state.vendors.find((v) => v.id === "V05")!;
+    expect(getVendorCost(state, streamingVendor)).toBe(15000);
+  });
+
+  it("flags budget packages that cannot cover an attendance increase", () => {
+    let state = createInitialTeamState();
+    state.tasks.filter((task) => ["T10", "T12"].includes(task.id)).forEach((task) => { task.budgetStatus = "included"; });
+    expect(getBudgetBreakdown(state).attendanceWarnings).toHaveLength(0);
+    state = applyEvent(state, "E04").state;
+    expect(getBudgetBreakdown(state).attendanceWarnings.map(({ task }) => task.id)).toEqual(["T10", "T12"]);
+    state.tasks.filter((task) => ["T10", "T12"].includes(task.id)).forEach((task) => { task.selectedBudgetOptionId = "expanded"; });
+    expect(getBudgetBreakdown(state).attendanceWarnings).toHaveLength(0);
   });
 
   it("migrates legacy task costs and hired vendors", () => {

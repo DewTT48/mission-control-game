@@ -38,6 +38,9 @@
 .budget-columns h4{color:var(--yellow);margin:0 0 8px}
 .budget-columns p{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:6px 0;margin:0}
 .budget-columns p>span{min-width:0}.budget-columns p>strong{white-space:nowrap}
+.budget-option-row{display:grid;gap:7px;border-bottom:1px solid var(--line);padding:9px 0}.budget-option-row>div{display:flex;justify-content:space-between;gap:10px}.budget-option-row small{color:var(--muted)}.budget-attendance{border-color:var(--yellow);color:var(--yellow);background:#ffd84a12}
+.event-impact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}.event-impact-grid>span{display:grid;gap:5px;padding:10px;background:var(--navy-950);border:2px solid var(--line)}.event-impact-grid strong{color:var(--yellow)}
+.event-filter-group,.event-badges{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.event-guide-grid{grid-template-columns:repeat(auto-fit,minmax(380px,1fr))}.facilitator-event-guide{border-top:2px solid var(--line);margin:12px 0;padding-top:10px}.facilitator-event-guide summary{cursor:pointer;color:var(--blue);font-weight:700}.facilitator-event-guide dl{display:grid;grid-template-columns:130px 1fr;gap:6px 10px}.facilitator-event-guide dt{color:var(--yellow);font-weight:700}.facilitator-event-guide dd{margin:0}.facilitator-event-guide small{color:var(--muted)}
 .commit-plan-row{display:flex;align-items:center;justify-content:space-between;gap:14px;border-top:2px solid var(--line);padding-top:14px;margin-top:14px}
 .commit-plan-row>div{display:grid;gap:5px}
 .form-warning{color:var(--orange);border-left:4px solid var(--orange);padding:7px 10px;background:#ff8a3d12}

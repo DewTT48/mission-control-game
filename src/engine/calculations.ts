@@ -1,4 +1,4 @@
-import type { TaskPriority, TeamGameState, Vendor } from "../types/game";
+import type { Task, TaskPriority, TeamGameState, Vendor } from "../types/game";
 
 const priorityRank: Record<TaskPriority, number> = { must: 0, should: 1, could: 2, unassigned: 3, drop: 4 };
 
@@ -27,7 +27,6 @@ export const getEffectiveEffort = (state: TeamGameState, taskId: string) => {
   const task = state.tasks.find((t) => t.id === taskId);
   if (!task) return 0;
   if (taskId === "T05" && isVendorActive(state, "V08")) return 2;
-  if (taskId === "T21" && isVendorActive(state, "V14")) return 2;
   return task.effectiveEffortHours ?? task.effortHours;
 };
 
@@ -135,19 +134,34 @@ export const getPlanReview = (state: TeamGameState) => {
   const overCapacity = state.resources.flatMap((resource) => Array.from({ length: 10 }, (_, index) => index + 1)
     .filter((day) => getUsedHours(state, resource.id, day) > getAvailableHours(state, resource.id, day))
     .map((day) => ({ resource, day, used: getUsedHours(state, resource.id, day), available: getAvailableHours(state, resource.id, day) })));
-  const issueCount = mustUnplanned.length + unassignedPriority.length + dependencyConflicts.length + plannedLate.length + overAllocated.length + overCapacity.length;
-  return { mustUnplanned, unassignedPriority, dependencyConflicts, plannedLate, overAllocated, overCapacity, issueCount };
+  const attendanceGaps = getBudgetBreakdown(state).attendanceWarnings;
+  const issueCount = mustUnplanned.length + unassignedPriority.length + dependencyConflicts.length + plannedLate.length + overAllocated.length + overCapacity.length + attendanceGaps.length;
+  return { mustUnplanned, unassignedPriority, dependencyConflicts, plannedLate, overAllocated, overCapacity, attendanceGaps, issueCount };
 };
 
+export const getSelectedBudgetOption = (task: Task) => task.budgetOptions?.find((option) => option.id === task.selectedBudgetOptionId)
+  ?? task.budgetOptions?.find((option) => option.cost === task.cost)
+  ?? task.budgetOptions?.[0];
+
+export const getTaskBudgetCost = (task: Task) => getSelectedBudgetOption(task)?.cost ?? task.cost;
+
+export const getVendorCost = (state: TeamGameState, vendor: Vendor) => Math.max(0, vendor.cost - (state.vendorDiscounts[vendor.id] ?? 0));
+
 export const getBudgetBreakdown = (state: TeamGameState) => {
-  const taskItems = state.tasks.filter((task) => task.status !== "dropped" && task.budgetStatus === "included" && task.cost > 0);
+  const taskItems = state.tasks.filter((task) => task.status !== "dropped" && task.budgetStatus === "included" && getTaskBudgetCost(task) > 0);
   const vendorItems = state.vendors.filter((vendor) => vendor.planStatus !== "available");
-  const taskCost = taskItems.reduce((sum, task) => sum + task.cost, 0);
-  const vendorCost = vendorItems.reduce((sum, vendor) => sum + vendor.cost, 0);
+  const taskCost = taskItems.reduce((sum, task) => sum + getTaskBudgetCost(task), 0);
+  const vendorCost = vendorItems.reduce((sum, vendor) => sum + getVendorCost(state, vendor), 0);
   const eventAdjustments = 0;
   const plannedSpend = taskCost + vendorCost + eventAdjustments;
   const remaining = state.budgetCeiling - plannedSpend;
-  return { taskItems, vendorItems, taskCost, vendorCost, eventAdjustments, plannedSpend, remaining, overBudget: remaining < 0 };
+  const attendanceWarnings = taskItems.flatMap((task) => {
+    const option = getSelectedBudgetOption(task);
+    return option?.attendanceCapacity !== undefined && option.attendanceCapacity < state.expectedAttendance
+      ? [{ task, option, gap: state.expectedAttendance - option.attendanceCapacity }]
+      : [];
+  });
+  return { taskItems, vendorItems, taskCost, vendorCost, eventAdjustments, plannedSpend, remaining, overBudget: remaining < 0, attendanceWarnings };
 };
 
 export const getPlannedSpend = (state: TeamGameState) => getBudgetBreakdown(state).plannedSpend;

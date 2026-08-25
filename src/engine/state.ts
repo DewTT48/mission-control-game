@@ -25,6 +25,7 @@ export const createInitialTeamState = (): TeamGameState => ({
   budgetCeiling: 120000,
   expectedAttendance: 150,
   networkRisk: false,
+  vendorDiscounts: {},
   planLocked: false,
   budgetRationale: "",
   missionStatus: "on_track",

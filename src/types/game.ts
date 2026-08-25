@@ -5,6 +5,14 @@ export type MissionStatus = "on_track" | "at_risk" | "critical";
 export type TaskBudgetStatus = "undecided" | "included" | "excluded";
 export type VendorPlanStatus = "available" | "planned" | "committed";
 
+export type BudgetOption = {
+  id: string;
+  label: LocalizedText;
+  cost: number;
+  impact: LocalizedText;
+  attendanceCapacity?: number;
+};
+
 export type Resource = {
   id: string;
   name: string;
@@ -31,6 +39,8 @@ export type Task = {
   issue: string;
   nextAction: string;
   budgetStatus: TaskBudgetStatus;
+  budgetOptions?: BudgetOption[];
+  selectedBudgetOptionId?: string;
 };
 
 export type Allocation = {
@@ -65,6 +75,16 @@ export type GameEvent = {
   effect: LocalizedText;
   notice: LocalizedText;
   debrief: LocalizedText;
+  deck: "core" | "extension";
+  facilitatorGuide: {
+    objective: LocalizedText;
+    useWhen: LocalizedText;
+    avoidWhen: LocalizedText;
+    watchFor: LocalizedText;
+    expectedResponse: LocalizedText;
+    prompts: LocalizedText[];
+    debriefConcept: LocalizedText;
+  };
 };
 
 export type SponsorQA = {
@@ -120,6 +140,7 @@ export type TeamGameState = {
   expectedAttendance: number;
   confirmedAttendance?: number;
   networkRisk: boolean;
+  vendorDiscounts: Record<string, number>;
   planLocked: boolean;
   budgetRationale: string;
   cateringCutoffDay?: number;

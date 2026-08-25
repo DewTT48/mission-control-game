@@ -25,6 +25,7 @@ export function PlanReview({ state, update }: { state: TeamGameState; update: Up
       <div className={review.overCapacity.length ? "review-warn" : "review-ok"}><strong>{review.overCapacity.length}</strong><span>เกิน Capacity</span></div>
       <div className={review.plannedLate.length ? "review-warn" : "review-ok"}><strong>{review.plannedLate.length}</strong><span>เสร็จเกิน Due By</span></div>
       <div className={review.overAllocated.length ? "review-warn" : "review-ok"}><strong>{review.overAllocated.length}</strong><span>จัดสรรเกิน Effort</span></div>
+      <div className={review.attendanceGaps.length ? "review-warn" : "review-ok"}><strong>{review.attendanceGaps.length}</strong><span>Package ต่ำกว่า Forecast</span></div>
       <div className={review.unassignedPriority.length ? "review-warn" : "review-ok"}><strong>{review.unassignedPriority.length}</strong><span>ยังไม่เลือก Priority</span></div>
     </div>
 
@@ -37,6 +38,7 @@ export function PlanReview({ state, update }: { state: TeamGameState; update: Up
         {review.dependencyConflicts.map(({ task, issue }) => <p key={`dep-${task.id}-${issue.dependencyId}`}><strong>{task.id}</strong> ขัดกับ {issue.dependencyId}: {issue.kind === "timing" ? `เริ่มได้เร็วสุด D${issue.earliestStartDay}` : issue.kind === "dropped" ? "งานต้นทางถูกตัดออก" : `งานต้นทางจัดสรร ${issue.allocated}/${issue.required}H`}</p>)}
         {review.plannedLate.map((task) => <p key={`late-${task.id}`}><strong>{task.id}</strong> วางแผนเสร็จหลัง Due By D{task.dueDay}</p>)}
         {review.overAllocated.map((task) => <p key={`over-task-${task.id}`}><strong>{task.id}</strong> จัดสรรชั่วโมงเกิน Effort ที่ต้องใช้</p>)}
+        {review.attendanceGaps.map(({ task, option }) => <p key={`attendance-${task.id}`}><strong>{task.id}</strong> Package ปัจจุบันรองรับ {option.attendanceCapacity} คน ต่ำกว่า Forecast</p>)}
         {review.overCapacity.map(({ resource, day, used, available }) => <p key={`capacity-${resource.id}-${day}`}><strong>{resource.name} D{day}</strong> ใช้ {used}/{available}H</p>)}
       </details>}
 
